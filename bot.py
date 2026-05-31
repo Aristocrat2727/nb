@@ -7,20 +7,18 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# ===== ТОКЕН ИЗ ПЕРЕМЕННЫХ RAILWAY =====
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
 if not BOT_TOKEN:
-    logger.error("BOT_TOKEN не задан")
+    logger.error("BOT_TOKEN не задан в переменных Railway")
     exit(1)
+# =======================================
 
-# ===== MAILGUN ДАННЫЕ (из переменных Railway) =====
-MAILGUN_DOMAIN = os.environ.get("MAILGUN_DOMAIN")
-MAILGUN_API_KEY = os.environ.get("MAILGUN_API_KEY")
-
-if not MAILGUN_DOMAIN or not MAILGUN_API_KEY:
-    logger.error("MAILGUN_DOMAIN или MAILGUN_API_KEY не заданы")
-    exit(1)
-# =================================================
+# ===== ВСЁ ОСТАЛЬНОЕ ВШИТО =====
+MAILGUN_DOMAIN = "sandbox65fd5df6fc5e43d5aa22050aa38e7b85.mailgun.org"
+MAILGUN_API_KEY = "key-11ec613266855ec1166ee05d241a80d1"
+# ===============================
 
 user_data = {}
 
@@ -42,7 +40,7 @@ def send_mailgun(to_email, subject, body, from_email):
             logger.info(f"Письмо отправлено: {from_email} -> {to_email}")
             return True, "✅ Письмо отправлено через Mailgun!"
         else:
-            logger.error(f"Mailgun ошибка: {response.status_code} - {response.text}")
+            logger.error(f"Mailgun ошибка: {response.status_code}")
             return False, f"❌ Ошибка Mailgun: {response.status_code}"
     except Exception as e:
         logger.error(f"Ошибка: {e}")
