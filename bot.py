@@ -15,18 +15,19 @@ if not BOT_TOKEN:
     logger.error("BOT_TOKEN не задан")
     exit(1)
 
-# Публичный SMTP (рабочий на данный момент)
-SMTP_SERVER = "smtp.titan.email"
-SMTP_PORT = 587
-SMTP_USER = "test@mail.bombuch.com"
-SMTP_PASS = "rDNJncaYSM"
+# ===== ТВОИ SMTP2GO ДАННЫЕ (из скриншотов) =====
+SMTP_SERVER = "mail-eu.smtp2go.com"
+SMTP_PORT = 2525
+SMTP_USER = "hitzcart.com"
+SMTP_PASS = "d7aNo57uoMI9wPxw"
+# ===============================================
 
 user_data = {}
 
-def send_email(to_email, subject, body):
+def send_email(to_email, subject, body, from_email):
     try:
         msg = MIMEMultipart()
-        msg["From"] = SMTP_USER
+        msg["From"] = from_email
         msg["To"] = to_email
         msg["Subject"] = subject
         msg.attach(MIMEText(body, "plain"))
@@ -34,18 +35,18 @@ def send_email(to_email, subject, body):
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=30)
         server.starttls()
         server.login(SMTP_USER, SMTP_PASS)
-        server.sendmail(SMTP_USER, [to_email], msg.as_string())
+        server.sendmail(from_email, [to_email], msg.as_string())
         server.quit()
         return True, "✅ Письмо отправлено!"
     except Exception as e:
-        return False, f"❌ Ошибка: {str(e)}"
+        return False, f"❌ Ошибка: {str(e)[:150]}"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    user_data[user_id] = {"step": "to"}
+    user_data[user_id] = {"step": "from"}
     await update.message.reply_text(
-        "📧 *Mailer Bot*\n\n"
-        "Введите *email получателя*:",
+        "📧 *SMTP2GO Mailer Bot*\n\n"
+        "Введите *от кого* (фейковый email, например security@telegram.org):",
         parse_mode="Markdown"
     )
 
@@ -65,7 +66,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     step = user_data[user_id]["step"]
 
-    if step == "to":
+    if step == "from":
+        user_data[user_id]["from"] = text
+        user_data[user_id]["step"] = "to"
+        await update.message.reply_text("Введите *кому* (реальный email):", parse_mode="Markdown")
+
+    elif step == "to":
         user_data[user_id]["to"] = text
         user_data[user_id]["step"] = "subject"
         await update.message.reply_text("Введите *тему* письма:", parse_mode="Markdown")
@@ -79,10 +85,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data[user_id]["body"] = text
         data = user_data[user_id]
 
-        await update.message.reply_text("⏳ Отправляю...")
-        success, msg = send_email(data["to"], data["subject"], data["body"])
+        await update.message.reply_text("⏳ Отправляю через SMTP2GO...")
+        success, msg = send_email(data["to"], data["subject"], data["body"], data["from"])
 
-        await update.message.reply_text(f"{msg}\n\n/start для нового")
+        await update.message.reply_text(
+            f"{msg}\n\n"
+            f"📤 От: {data['from']}\n"
+            f"📥 Кому: {data['to']}\n"
+            f"📌 Тема: {data['subject']}\n\n"
+            f"/start для нового"
+        )
         del user_data[user_id]
 
 if __name__ == "__main__":
@@ -90,4 +102,5 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("cancel", cancel))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    logger.info("SMTP2GO бот запущен")
     app.run_polling()
