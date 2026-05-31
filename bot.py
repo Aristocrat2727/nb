@@ -1,8 +1,6 @@
-import smtplib
+import requests
 import os
 import logging
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
@@ -15,37 +13,48 @@ if not BOT_TOKEN:
     logger.error("BOT_TOKEN не задан")
     exit(1)
 
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 465  # изменено с 587 на 465
-SMTP_USER = "namegazan@gmail.com"
-SMTP_PASS = "dkhufoiqbvxbxftf"
+# ===== MAILGUN ДАННЫЕ (из переменных Railway) =====
+MAILGUN_DOMAIN = os.environ.get("MAILGUN_DOMAIN")
+MAILGUN_API_KEY = os.environ.get("MAILGUN_API_KEY")
+
+if not MAILGUN_DOMAIN or not MAILGUN_API_KEY:
+    logger.error("MAILGUN_DOMAIN или MAILGUN_API_KEY не заданы")
+    exit(1)
+# =================================================
 
 user_data = {}
 
-def send_email(to_email, subject, body, from_email):
+def send_mailgun(to_email, subject, body, from_email):
     try:
-        msg = MIMEMultipart()
-        msg["From"] = from_email
-        msg["To"] = to_email
-        msg["Subject"] = subject
-        msg.attach(MIMEText(body, "plain"))
-
-        # Используем SMTP_SSL вместо starttls
-        server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=30)
-        server.login(SMTP_USER, SMTP_PASS)
-        server.sendmail(from_email, [to_email], msg.as_string())
-        server.quit()
-        return True, "✅ Письмо отправлено!"
+        response = requests.post(
+            f"https://api.mailgun.net/v3/{MAILGUN_DOMAIN}/messages",
+            auth=("api", MAILGUN_API_KEY),
+            data={
+                "from": from_email,
+                "to": [to_email],
+                "subject": subject,
+                "text": body
+            },
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            logger.info(f"Письмо отправлено: {from_email} -> {to_email}")
+            return True, "✅ Письмо отправлено через Mailgun!"
+        else:
+            logger.error(f"Mailgun ошибка: {response.status_code} - {response.text}")
+            return False, f"❌ Ошибка Mailgun: {response.status_code}"
     except Exception as e:
+        logger.error(f"Ошибка: {e}")
         return False, f"❌ Ошибка: {str(e)[:150]}"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_data[user_id] = {"step": "from"}
     await update.message.reply_text(
-        "📧 *Gmail Mailer Bot*\n\n"
-        "Введите *от кого* (любой email):\n"
-        f"Или отправь 'default' чтобы использовать {SMTP_USER}",
+        "📧 *Mailgun Mailer Bot*\n\n"
+        "Введите *от кого* (любой email, например security@telegram.org):\n"
+        f"Или отправь 'default' чтобы использовать mailgun@{MAILGUN_DOMAIN}",
         parse_mode="Markdown"
     )
 
@@ -67,7 +76,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if step == "from":
         if text.lower() == "default":
-            user_data[user_id]["from"] = SMTP_USER
+            user_data[user_id]["from"] = f"mailgun@{MAILGUN_DOMAIN}"
         else:
             user_data[user_id]["from"] = text
         user_data[user_id]["step"] = "to"
@@ -87,8 +96,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data[user_id]["body"] = text
         data = user_data[user_id]
 
-        await update.message.reply_text("⏳ Отправляю через Gmail SMTP...")
-        success, msg = send_email(data["to"], data["subject"], data["body"], data["from"])
+        await update.message.reply_text("⏳ Отправляю через Mailgun API...")
+        success, msg = send_mailgun(data["to"], data["subject"], data["body"], data["from"])
 
         await update.message.reply_text(
             f"{msg}\n\n"
@@ -104,5 +113,5 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("cancel", cancel))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    logger.info("Gmail SMTP бот запущен на порту 465")
+    logger.info("Mailgun бот запущен")
     app.run_polling()
