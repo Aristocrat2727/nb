@@ -15,12 +15,10 @@ if not BOT_TOKEN:
     logger.error("BOT_TOKEN не задан")
     exit(1)
 
-# ===== ТВОИ SMTP2GO ДАННЫЕ (из скриншотов) =====
-SMTP_SERVER = "mail-eu.smtp2go.com"
-SMTP_PORT = 2525
-SMTP_USER = "hitzcart.com"
-SMTP_PASS = "d7aNo57uoMI9wPxw"
-# ===============================================
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+SMTP_USER = "namegazan@gmail.com"
+SMTP_PASS = "dkhufoiqbvxbxftf"
 
 user_data = {}
 
@@ -45,8 +43,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_data[user_id] = {"step": "from"}
     await update.message.reply_text(
-        "📧 *SMTP2GO Mailer Bot*\n\n"
-        "Введите *от кого* (фейковый email, например security@telegram.org):",
+        "📧 *Gmail Mailer Bot*\n\n"
+        "Введите *от кого* (любой email):\n"
+        f"Или отправь 'default' чтобы использовать {SMTP_USER}",
         parse_mode="Markdown"
     )
 
@@ -67,7 +66,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     step = user_data[user_id]["step"]
 
     if step == "from":
-        user_data[user_id]["from"] = text
+        if text.lower() == "default":
+            user_data[user_id]["from"] = SMTP_USER
+        else:
+            user_data[user_id]["from"] = text
         user_data[user_id]["step"] = "to"
         await update.message.reply_text("Введите *кому* (реальный email):", parse_mode="Markdown")
 
@@ -85,7 +87,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data[user_id]["body"] = text
         data = user_data[user_id]
 
-        await update.message.reply_text("⏳ Отправляю через SMTP2GO...")
+        await update.message.reply_text("⏳ Отправляю через Gmail SMTP...")
         success, msg = send_email(data["to"], data["subject"], data["body"], data["from"])
 
         await update.message.reply_text(
@@ -102,5 +104,5 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("cancel", cancel))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    logger.info("SMTP2GO бот запущен")
+    logger.info("Gmail SMTP бот запущен")
     app.run_polling()
