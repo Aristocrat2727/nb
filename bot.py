@@ -16,7 +16,7 @@ if not BOT_TOKEN:
     exit(1)
 
 SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
+SMTP_PORT = 465  # изменено с 587 на 465
 SMTP_USER = "namegazan@gmail.com"
 SMTP_PASS = "dkhufoiqbvxbxftf"
 
@@ -30,8 +30,8 @@ def send_email(to_email, subject, body, from_email):
         msg["Subject"] = subject
         msg.attach(MIMEText(body, "plain"))
 
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=30)
-        server.starttls()
+        # Используем SMTP_SSL вместо starttls
+        server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=30)
         server.login(SMTP_USER, SMTP_PASS)
         server.sendmail(from_email, [to_email], msg.as_string())
         server.quit()
@@ -104,5 +104,5 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("cancel", cancel))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    logger.info("Gmail SMTP бот запущен")
+    logger.info("Gmail SMTP бот запущен на порту 465")
     app.run_polling()
